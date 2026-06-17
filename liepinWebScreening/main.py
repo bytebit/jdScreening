@@ -244,6 +244,25 @@ def cmd_analyze(jd_text: str, resume_dir: str, api_key: Optional[str] = None):
     jd = JDRequirement(jd_id=f"analysis_{datetime.now():%Y%m%d_%H%M%S}", jd_text=jd_text)
     jd = _enrich_jd_with_deepseek(jd)
 
+    # 打印 JD 筛选条件
+    print()
+    print("=" * 60)
+    print("  JD 筛选条件")
+    print("=" * 60)
+    if jd.jd_title:
+        print(f"  职位: {jd.jd_title}")
+    if jd.min_education and jd.min_education != "不限":
+        print(f"  学历要求: {jd.min_education}")
+    if jd.min_years > 0:
+        print(f"  工作经验: {jd.min_years}年以上")
+    if jd.must_skills:
+        print(f"  硬性技能: {'、'.join(jd.must_skills)}")
+    if jd.keywords:
+        print(f"  经验关键词: {'、'.join(jd.keywords)}")
+    if jd.nice_skills:
+        print(f"  加分项: {'、'.join(jd.nice_skills)}")
+    print()
+
     pipeline = ScreeningPipeline(jd)
     results = asyncio.run(pipeline.run_all(resumes))
 

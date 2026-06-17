@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>猎聘简历筛选系统</title>
+<style>
+:root {
+  --bg: #f0ebe4; --card: #ffffff; --primary: #0d7377; --primary-light: #e0f0f0;
+  --accent: #d4942b; --success: #2d8a4e; --error: #c0392b; --text: #2d2d2d;
+  --text-secondary: #6b6b6b; --border: #e0dbd4; --shadow: 0 2px 12px rgba(0,0,0,0.06);
+  --radius: 12px; --radius-sm: 8px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg); color: var(--text); font-size: 14px;
+  height: 100vh; overflow: hidden; user-select: none; -webkit-user-select: none;
+}
+.title-bar {
+  background: linear-gradient(135deg, var(--primary) 0%, #0a5c5f 100%);
+  color: #fff; padding: 14px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  -webkit-app-region: drag;
+}
+.title-bar h1 { font-size: 18px; font-weight: 600; }
+.title-bar .subtitle { font-size: 12px; opacity: 0.8; }
+.badge-group { display: flex; gap: 12px; -webkit-app-region: no-drag; }
+.status-badge {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; padding: 4px 12px; border-radius: 20px; background: rgba(255,255,255,0.15);
+}
+.status-badge .dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot.green { background: #4ade80; } .dot.gray { background: #94a3b8; } .dot.amber { background: #fbbf24; }
+.layout { display: flex; height: calc(100vh - 52px); }
+.sidebar {
+  width: 200px; padding: 20px 16px; border-right: 1px solid var(--border);
+  background: var(--card); flex-shrink: 0;
+}
+.sidebar-section { margin-bottom: 24px; }
+.sidebar-title { font-size: 11px; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 1px; margin-bottom: 10px; font-weight: 600; }
+.stat-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); margin-bottom: 4px; font-size: 13px; }
+.stat-item:hover { background: var(--primary-light); }
+.stat-item .icon { font-size: 16px; width: 24px; text-align: center; }
+.stat-item .label { color: var(--text-secondary); }
+.stat-item .value { margin-left: auto; font-weight: 600; }
+.report-link { display: block; padding: 6px 10px; font-size: 12px; color: var(--primary); text-decoration: none; border-radius: var(--radius-sm); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.report-link:hover { background: var(--primary-light); }
+.main { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+.action-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.action-card {
+  background: var(--card); border-radius: var(--radius); padding: 20px 16px; text-align: center;
+  border: 1px solid var(--border); cursor: pointer; transition: all 0.25s ease; box-shadow: var(--shadow);
+}
+.action-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); border-color: var(--primary); }
+.action-card:active { transform: scale(0.97); }
+.action-card .icon { font-size: 32px; margin-bottom: 8px; }
+.action-card .action-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.action-card .action-desc { font-size: 11px; color: var(--text-secondary); }
+.action-card.disabled { opacity: 0.5; cursor: not-allowed; }
+.action-card.running { border-color: var(--accent); background: #fdf3e0; }
+.settings-panel {
+  background: var(--card); border-radius: var(--radius); padding: 16px 20px;
+  border: 1px solid var(--border); box-shadow: var(--shadow);
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+}
+.settings-panel label { font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+.settings-panel select, .settings-panel input {
+  font-size: 13px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg); color: var(--text); outline: none;
+}
+.settings-panel select:focus, .settings-panel input:focus { border-color: var(--primary); }
+.settings-panel input[type=number] { width: 60px; }
+.checkbox-wrap { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.checkbox-wrap input { width: 16px; height: 16px; cursor: pointer; }
+.log-panel {
+  flex: 1; background: #1e1e2e; border-radius: var(--radius);
+  padding: 16px; overflow-y: auto; min-height: 120px; max-height: 300px;
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  font-size: 12px; line-height: 1.6; box-shadow: inset 0 2px 8px rgba(0,0,0,0.15);
+}
+.log-entry { color: #cdd6f4; white-space: pre-wrap; word-break: break-all; user-select: text; -webkit-user-select: text; }
+.log-entry.info { color: #89b4fa; } .log-entry.success { color: #a6e3a1; }
+.log-entry.error { color: #f38ba8; } .log-entry.warn { color: #f9e2af; }
+.log-entry.system { color: #6c7086; font-style: italic; }
+.log-time { color: #6c7086; margin-right: 8px; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="title-bar">
+  <div>
+    <h1>猎聘简历筛选系统</h1>
+    <div class="subtitle">一键采集 AI 分析 智能报告</div>
+  </div>
+  <div class="badge-group">
+    <div class="status-badge" id="badge-browser"><span class="dot gray"></span> 浏览器</div>
+    <div class="status-badge" id="badge-resumes"><span class="dot gray"></span> <span id="resume-count">0</span> 份缓存</div>
+    <div class="status-badge" id="badge-running" style="display:none"><span class="dot amber"></span> 运行中...</div>
+  </div>
+</div>
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">系统状态</div>
+      <div class="stat-item"><span class="icon">&#x1f5a5;&#xfe0f;</span><span class="label">浏览器</span><span class="value" id="stat-browser">检测中</span></div>
+      <div class="stat-item"><span class="icon">&#x1f4c4;</span><span class="label">缓存简历</span><span class="value" id="stat-resumes">-</span></div>
+      <div class="stat-item"><span class="icon">&#x1f4ca;</span><span class="label">报告</span><span class="value" id="stat-reports">-</span></div>
+      <div style="font-size:10px;color:var(--text-secondary);padding:4px 10px;word-break:break-all" id="debug-dir"></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">最近报告</div>
+      <div id="report-list"><div style="color:var(--text-secondary);font-size:12px;">暂无报告</div></div>
+    </div>
+  </div>
+  <div class="main">
+    <div class="action-grid">
+      <div class="action-card" id="btn-browser" onclick="startBrowser()"><div class="icon">&#x1f5a5;&#xfe0f;</div><div class="action-title">启动浏览器</div><div class="action-desc">以调试模式启动 Edge</div></div>
+      <div class="action-card" id="btn-collect" onclick="collectResumes()"><div class="icon">&#x1f4e5;</div><div class="action-title">获取简历</div><div class="action-desc">从猎聘采集候选人</div></div>
+      <div class="action-card" id="btn-analyze" onclick="analyzeResumes()"><div class="icon">&#x1f50d;</div><div class="action-title">简历筛选</div><div class="action-desc">AI 分析并生成报告</div></div>
+      <div class="action-card" id="btn-report" onclick="openLatestReport()"><div class="icon">&#x1f4ca;</div><div class="action-title">查看报告</div><div class="action-desc">打开最近生成的报告</div></div>
+    </div>
+    <div class="settings-panel">
+      <label>采集份数</label>
+      <input type="number" id="max-count" value="30" min="5" max="200">
+      <label class="checkbox-wrap"><input type="checkbox" id="deep-mode" checked> 深度采集</label>
+      <label>JD 文件</label>
+      <select id="jd-select"></select>
+      <button onclick="pickJDFile()" style="font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer">浏览...</button>
+    </div>
+    <div class="log-panel" id="log-panel">
+      <div class="log-entry system">系统就绪，等待操作...</div>
+    </div>
+  </div>
+</div>
+<script>
+var api = null;
+var isRunning = false;
+
+function log(msg, type) {
+  type = type || 'info';
+  var panel = document.getElementById('log-panel');
+  var time = new Date().toLocaleTimeString('zh-CN', {hour12:false});
+  var div = document.createElement('div');
+  div.className = 'log-entry ' + type;
+  div.innerHTML = '<span class="log-time">[' + time + ']</span>' + msg;
+  panel.appendChild(div);
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function initAPI() {
+  if (window.pywebview && window.pywebview.api) {
+    api = window.pywebview.api;
+    return true;
+  }
+  return false;
+}
+
+function useMockAPI() {
+  api = {
+    get_status: function() { return Promise.resolve({browser: false, resume_count: 0, report_count: 0, reports: []}); },
+    get_jd_files: function() { return Promise.resolve([]); },
+    get_logs: function() { return Promise.resolve([]); },
+    start_browser: function() { return Promise.resolve('ok'); },
+    collect_resumes: function(m,d) { return Promise.resolve(); },
+    analyze_resumes: function(f) { return Promise.resolve('ok'); },
+    open_report: function(f) { return Promise.resolve(); },
+    get_reports: function() { return Promise.resolve([]); },
+    pick_jd_file: function() { return Promise.resolve(null); },
+  };
+}
+
+function startPolling() {
+  updateStatus();
+  setInterval(updateStatus, 3000);
+  setInterval(pollLogs, 800);
+}
+
+function updateStatus() {
+  if (!api) return;
+  api.get_status().then(function(s) {
+    document.getElementById('badge-browser').innerHTML = '<span class="dot ' + (s.browser ? 'green' : 'gray') + '"></span> ' + (s.browser ? '已连接' : '未连接');
+    document.getElementById('resume-count').textContent = s.resume_count;
+    document.getElementById('stat-browser').textContent = s.browser ? '已连接' : '未连接';
+    document.getElementById('stat-resumes').textContent = s.resume_count + ' 份';
+    document.getElementById('stat-reports').textContent = s.report_count + ' 个';
+    var dd = document.getElementById('debug-dir');
+    if (dd && s.app_dir) dd.textContent = s.app_dir;
+    var list = document.getElementById('report-list');
+    if (s.reports && s.reports.length > 0) {
+      list.innerHTML = '';
+      s.reports.forEach(function(r) {
+        var a = document.createElement('div');
+        a.className = 'report-link';
+        a.textContent = r;
+        a.onclick = function() { openReport(r); };
+        list.appendChild(a);
+      });
+    } else {
+      list.innerHTML = '<div style="color:var(--text-secondary);font-size:12px;">暂无报告</div>';
+    }
+    document.getElementById('btn-browser').className = 'action-card' + (isRunning ? ' disabled' : '');
+    document.getElementById('btn-collect').className = 'action-card' + (isRunning || !s.browser ? ' disabled' : '');
+    document.getElementById('btn-analyze').className = 'action-card' + (isRunning || s.resume_count === 0 ? ' disabled' : '');
+  });
+}
+
+function pollLogs() {
+  if (!api) return;
+  api.get_logs().then(function(entries) {
+    entries.forEach(function(e) { log(e.msg, e.type); });
+  });
+}
+
+function loadJDList() {
+  if (!api) return;
+  api.get_jd_files().then(function(files) {
+    var sel = document.getElementById('jd-select');
+    if (files.length === 0) { sel.innerHTML = '<option value="">（无 JD 文件）</option>'; return; }
+    sel.innerHTML = files.map(function(f) { return '<option value="' + f + '">' + f + '</option>'; }).join('');
+  });
+}
+
+function initAndStart() {
+  if (initAPI()) { startPolling(); loadJDList(); }
+  else { useMockAPI(); startPolling(); loadJDList(); }
+}
+
+function setRunning(r) { isRunning = r; document.getElementById('badge-running').style.display = r ? '' : 'none'; updateStatus(); }
+function startBrowser() { if (isRunning) return; setRunning(true); log('正在启动浏览器...', 'info'); api.start_browser().then(function() { setTimeout(function() { setRunning(false); }, 1000); }); }
+function collectResumes() { if (isRunning) return; var max = parseInt(document.getElementById('max-count').value) || 30; var deep = document.getElementById('deep-mode').checked; setRunning(true); log('开始采集(' + max + '份)...', 'info'); api.collect_resumes(max, deep).then(function() { setRunning(false); }); }
+function analyzeResumes() { if (isRunning) return; var sel = document.getElementById('jd-select'); var jd = sel.value; if (!jd) { log('请选择 JD 文件', 'warn'); return; } setRunning(true); log('开始筛选...', 'info'); api.analyze_resumes(jd).then(function() { setRunning(false); }); }
+function pickJDFile() { if (!api) return; api.pick_jd_file().then(function(r) { if (r) { var sel = document.getElementById('jd-select'); var opt = document.createElement('option'); opt.value = r.path; opt.text = r.name; sel.add(opt); sel.value = r.path; log('已选择: ' + r.name, 'success'); } }); }
+function openReport(name) { if (api) api.open_report(name); }
+function openLatestReport() { if (!api) return; api.get_reports().then(function(r) { if (r.length > 0) api.open_report(r[0]); else log('没有可用报告', 'warn'); }); }
+
+document.addEventListener('pywebviewready', function() { initAndStart(); });
+if (window.pywebview) { initAndStart(); }
+else { window.addEventListener('load', function() { setTimeout(function() { if (!api) { initAndStart(); }}, 1500); }); }
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === '1') startBrowser();
+  else if (e.key === '2') collectResumes();
+  else if (e.key === '3') analyzeResumes();
+  else if (e.key === '4') openLatestReport();
+});
+</script>
+</body>
+</html>

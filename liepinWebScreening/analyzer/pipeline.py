@@ -207,9 +207,21 @@ class ScreeningPipeline:
             progress_callback=callback,
         )
 
-        # 更新 stage3 结果
+        # 更新 stage3 结果并打印
         for resume, stage2_score, s3_result in stage3_results:
             results_map[resume.id].stage3 = s3_result
+            name = resume.name or resume.id
+            level = s3_result.level
+            score = s3_result.overall_score
+            rec = s3_result.recommendation or "待定"
+            summary = s3_result.summary or ""
+            print(f"  [{level}] {name}: {score}分 - {rec}")
+            if summary:
+                print(f"          {summary}")
+            if s3_result.strengths:
+                print(f"          优势: {'; '.join(s3_result.strengths[:2])}")
+            if s3_result.concerns:
+                print(f"          风险: {'; '.join(s3_result.concerns[:2])}")
 
         self._progress("第三阶段", "DeepSeek 深度分析", total, total)
 

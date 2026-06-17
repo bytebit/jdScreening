@@ -81,15 +81,14 @@ class LiepinCollector:
             if taken:
                 if deep:
                     self._enrich_with_details(taken, store)
-                    # 没有 source_url 的简历也要保存
                     for r in taken:
                         if not r.source_url:
                             store.save_resume(r)
-                            print(f"   已保存(无详情): {r.name}")
+                        print(f"   已完成采集: {r.name}")
                 else:
                     for r in taken:
                         store.save_resume(r)
-                        print(f"   已保存: {r.name} ({len(r.raw_text)}ch)")
+                        print(f"   已完成采集: {r.name}")
 
             all_resumes.extend(taken)
             empty_pages = 0 if taken else empty_pages + 1
