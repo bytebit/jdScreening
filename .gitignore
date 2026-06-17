@@ -35,5 +35,4 @@ Thumbs.db
 # PM2
 node_modules/
 
-# Deployment artifacts
-*.bat
+# Deployment scripts (tracked in git, so .bat is not ignored)
