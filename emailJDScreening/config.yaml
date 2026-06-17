@@ -1,0 +1,60 @@
+# ==========================================
+# AI 简历自动筛选系统 - 配置文件
+# ==========================================
+
+email:
+  # IMAP 服务器信息
+  imap_server: "imap.company.com"      # 请修改为您的邮箱IMAP地址
+  imap_port: 993
+  account: "hr@company.com"            # 请修改为您的邮箱地址
+  password: "${EMAIL_PASSWORD}"         # 建议使用环境变量（export EMAIL_PASSWORD=xxx）
+
+  # 邮箱文件夹名称（需要在邮箱中提前创建）
+  inbox_folder: "INBOX"
+  processed_folder: "已处理"
+  folders:
+    pass: "通过筛选"                    # 通过的邮件移到这里
+    pending: "待定"                     # 待定的邮件移到这里
+    fail: "未通过筛选"                   # 不通过的邮件移到这里
+
+
+deepseek:
+  api_key: "${DEEPSEEK_API_KEY}"       # 建议使用环境变量（export DEEPSEEK_API_KEY=sk-xxx）
+  api_url: "https://api.deepseek.com/v1/chat/completions"
+  model: "deepseek-chat"
+  temperature: 0.1                     # 低温度，保证评判一致性
+  max_tokens: 512
+
+
+jobs:
+  # JD（职位描述）文件存放目录
+  jd_dir: "./jds/"
+
+  # 邮件主题关键词 → JD 文件的映射规则
+  # 系统按顺序匹配，命中第一个即停止
+  subject_rules:
+    - keywords: ["前端", "前端开发", "frontend", "front-end"]
+      jd_file: "frontend_engineer.txt"
+    - keywords: ["后端", "后端开发", "Java", "Go", "backend"]
+      jd_file: "backend_engineer.txt"
+    - keywords: ["产品经理", "产品", "PM", "product"]
+      jd_file: "product_manager.txt"
+    - keywords: ["测试", "QA", "测试工程师"]
+      jd_file: "qa_engineer.txt"
+
+  # 未匹配到关键词时的默认 JD
+  default_jd: "general.txt"
+
+
+resume:
+  # 简历文本最大长度（字符数），超出截断以节省 token
+  max_text_length: 8000
+  # 支持的简历附件格式
+  supported_formats: [".pdf", ".docx", ".doc", ".txt"]
+
+
+logging:
+  level: "INFO"
+  file: "./logs/resume_filter.log"
+  report_dir: "./reports/"              # CSV 报表输出目录
+  temp_dir: "./temp/"                   # 临时文件目录

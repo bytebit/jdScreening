@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+venv/
+.env
+
+# Data (runtime generated)
+**/data/resumes/
+**/data/results/
+**/data/sessions/
+**/data/cookies/
+**/data/jd/
+**/data/logs/
+
+# Reports (regeneratable)
+**/data/reports/
+
+# Temp & logs
+logs/
+temp/
+reports/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PM2
+node_modules/
+
+# Deployment artifacts
+*.bat

@@ -1,0 +1,33 @@
+# =============================================
+# 猎聘智能简历筛选系统 - 依赖清单
+# =============================================
+# 安装方式: pip install -r requirements.txt --break-system-packages
+
+# ── 核心 ──
+httpx>=0.27.0              # HTTP 客户端 (API 调用)
+openai>=1.30.0             # DeepSeek API 调用 (兼容 OpenAI SDK)
+
+# ── 采集层 ──
+playwright>=1.45.0         # 浏览器自动化 (仅用于登录获取 Token)
+# 首次使用需要: playwright install chromium
+
+# ── 分析层 ──
+# 第二阶段：向量语义匹配
+# fastembed 基于 ONNX Runtime，无需安装 PyTorch，轻量高效
+fastembed>=0.4.0           # 本地嵌入模型 (BGE-M3 / bge-base-zh)
+# 如果 fastembed 装不上，备选:
+# sentence-transformers>=3.0.0
+
+# 第三阶段：DeepSeek 分析 (已包含在 openai 中)
+
+# ── 报告输出 ──
+openpyxl>=3.1.0            # Excel 报告生成
+
+# ── 任务调度 ──
+APScheduler>=3.10.0        # 定时任务调度
+
+# ── 工具 ──
+python-dotenv>=1.0.0       # 环境变量 (.env 文件)
+PyYAML>=6.0                # YAML 配置文件 (可选)
+loguru>=0.7.2              # 更友好的日志
+rich>=13.0.0               # 控制台格式化输出
