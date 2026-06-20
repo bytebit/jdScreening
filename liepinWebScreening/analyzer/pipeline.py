@@ -311,10 +311,4 @@ class ScreeningPipeline:
             for r in top5:
                 print(f"    {r.candidate_name}: {r.final_score}分({r.final_level}) - {r.final_summary}")
 
-    # ────────────────────────────────────────────────
-    # 进度回调
-    # ────────────────────────────────────────────────
-    def _progress(self, stage, action, current, total, message=""):
-        """触发进度回调"""
-        if self.progress_callback:
-            self.progress_callback(current, total, stage, message or action)
+    # ─────────────────────

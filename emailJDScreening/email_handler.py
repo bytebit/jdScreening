@@ -32,6 +32,7 @@ class EmailHandler:
                 self.email_config['imap_server'],
                 self.email_config['imap_port']
             )
+            self.imap._encoding = 'utf-8'
             password = self._resolve_password()
             self.imap.login(self.email_config['account'], password)
             self.imap.select(self.email_config['inbox_folder'])
@@ -72,25 +73,56 @@ class EmailHandler:
     # ------------------------------------------------------------------
 
     def get_unseen_emails(self):
-        """获取所有未读邮件的 ID 列表"""
+        """获取所有未读邮件的序列号列表（用 SEARCH ALL 过滤幽灵邮件）"""
         try:
-            _, messages = self.imap.search(None, 'UNSEEN')
-            ids = messages[0].split() if messages[0] else []
-            logging.info(f"发现 {len(ids)} 封未读邮件")
-            return ids
+            # 先获取所有实际存在的邮件序列号
+            _, all_data = self.imap.search(None, 'ALL')
+            all_ids = set(all_data[0].split()) if all_data[0] else set()
+
+            # 再获取未读邮件序列号
+            _, unseen_data = self.imap.search(None, 'UNSEEN')
+            unseen_ids = unseen_data[0].split() if unseen_data[0] else []
+
+            # 只保留两者交集（过滤 SEARCH UNSEEN 可能返回的幽灵邮件）
+            valid = [sid for sid in unseen_ids if sid in all_ids]
+            if len(valid) != len(unseen_ids):
+                ghost_count = len(unseen_ids) - len(valid)
+                logging.warning(f"过滤了 {ghost_count} 封幽灵序列号")
+
+            return valid
         except Exception as e:
             logging.error(f"搜索未读邮件失败: {e}")
             return []
 
     def fetch_email(self, email_id):
         """获取指定 ID 的邮件原始数据"""
-        try:
-            _, msg_data = self.imap.fetch(email_id, '(RFC822)')
-            raw_email = msg_data[0][1]
-            return email.message_from_bytes(raw_email)
-        except Exception as e:
-            logging.error(f"获取邮件 {email_id} 失败: {e}")
-            return None
+        fetch_attempts = [
+            '(RFC822)',
+            '(BODY[])',
+            '(BODY.PEEK[])',
+        ]
+        for fetch_item in fetch_attempts:
+            try:
+                typ, msg_data = self.imap.fetch(email_id, fetch_item)
+                if typ != 'OK' or not msg_data:
+                    continue
+                raw_bytes = None
+                for part in msg_data:
+                    if part is None:
+                        continue
+                    if isinstance(part, tuple) and len(part) >= 2:
+                        raw_bytes = part[1]
+                        break
+                    elif isinstance(part, bytes):
+                        raw_bytes = part
+                        break
+                if raw_bytes:
+                    return email.message_from_bytes(raw_bytes)
+            except Exception:
+                continue
+
+        logging.warning(f"邮件 {email_id} 获取失败")
+        return None
 
     # ------------------------------------------------------------------
     # 邮件头解析
@@ -140,6 +172,51 @@ class EmailHandler:
         """获取邮件发送时间"""
         date_str = msg.get('Date', '')
         return date_str
+
+    # ------------------------------------------------------------------
+    # 正文提取
+    # ------------------------------------------------------------------
+
+    def get_body_text(self, msg):
+        """提取邮件正文纯文本（支持 HTML 转纯文本）"""
+        import re as _re
+        body = ""
+        if msg.is_multipart():
+            for part in msg.walk():
+                ct = part.get_content_type()
+                if ct == 'text/plain':
+                    payload = part.get_payload(decode=True)
+                    if payload:
+                        try:
+                            body += payload.decode('utf-8', errors='replace')
+                        except:
+                            body += payload.decode('gbk', errors='replace')
+                    break
+            if not body:
+                for part in msg.walk():
+                    ct = part.get_content_type()
+                    if ct == 'text/html':
+                        payload = part.get_payload(decode=True)
+                        if payload:
+                            try:
+                                html = payload.decode('utf-8', errors='replace')
+                            except:
+                                html = payload.decode('gbk', errors='replace')
+                            # HTML 转纯文本
+                            html = _re.sub(r'<head>.*?</head>', '', html, flags=_re.DOTALL)
+                            html = _re.sub(r'<style[^>]*>.*?</style>', '', html, flags=_re.DOTALL)
+                            html = _re.sub(r'<[^>]+>', '\n', html)
+                            html = _re.sub(r'\s+', ' ', html)
+                            body = html.strip()
+                        break
+        else:
+            payload = msg.get_payload(decode=True)
+            if payload:
+                try:
+                    body = payload.decode('utf-8', errors='replace')
+                except:
+                    body = payload.decode('gbk', errors='replace')
+        return body.strip()
 
     # ------------------------------------------------------------------
     # 附件处理
@@ -202,50 +279,16 @@ class EmailHandler:
     # 邮件移动
     # ------------------------------------------------------------------
 
-    def ensure_folder(self, folder_name):
-        """确保邮箱文件夹存在，不存在则创建"""
+    _chinese_folder_supported = None  # 缓存：该服务器是否支持中文文件夹名
+
+    def _list_folders(self):
+        """列出邮箱中的所有文件夹，返回 (分隔符, 文件夹列表)"""
         try:
-            self.imap.create(folder_name)
-        except imaplib.IMAP4.error:
-            # 文件夹可能已存在，忽略
-            pass
-
-    def move_to_folder(self, email_id, folder_name):
-        """
-        将邮件移动到指定文件夹
-        使用 IMAP COPY + STORE +FLAGS \\Deleted 实现移动效果
-        """
-        try:
-            self.ensure_folder(folder_name)
-            result = self.imap.copy(email_id, folder_name)
-            if result[0] == 'OK':
-                self.imap.store(email_id, '+FLAGS', '\\Deleted')
-                logging.info(f"邮件 {email_id} 已移至 [{folder_name}]")
-            else:
-                logging.error(f"移动邮件 {email_id} 失败: {result}")
-        except Exception as e:
-            logging.error(f"移动邮件 {email_id} 到 {folder_name} 失败: {e}")
-
-    # ------------------------------------------------------------------
-    # 清理与断开
-    # ------------------------------------------------------------------
-
-    def delete_temp_files(self, file_paths):
-        """删除临时下载的附件文件"""
-        for fp in file_paths:
-            try:
-                if os.path.exists(fp):
-                    os.remove(fp)
-            except Exception as e:
-                logging.warning(f"删除临时文件 {fp} 失败: {e}")
-
-    def logout(self):
-        """断开 IMAP 连接"""
-        if self.imap:
-            try:
-                self.imap.expunge()
-                self.imap.logout()
-            except:
-                pass
-            self._connected = False
-            logging.info("已断开邮箱连接")
+            typ, folders = self.imap.list()
+            if typ != 'OK':
+                return None, []
+            separator = '/'
+            parsed = []
+            for line in folders:
+                decoded = line.decode('utf-8', errors='replace')
+                # IMAP 

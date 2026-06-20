@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>邮件简历筛选系统</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #f0ebe4; color: #2d2d2d; font-size: 14px;
+  height: 100vh; overflow: hidden; user-select: none;
+}
+.title-bar {
+  background: linear-gradient(135deg, #0d7377 0%, #0a5c5f 100%);
+  color: #fff; padding: 14px 24px;
+  display: flex; align-items: center; justify-content: space-between; -webkit-app-region: drag;
+}
+.title-bar h1 { font-size: 18px; font-weight: 600; }
+.title-bar .subtitle { font-size: 12px; opacity: 0.8; }
+.layout { display: flex; height: calc(100vh - 52px); }
+.sidebar {
+  width: 350px; padding: 16px; border-right: 1px solid #e0dbd4;
+  background: #fff; flex-shrink: 0; overflow-y: auto;
+}
+.section { margin-bottom: 20px; }
+.section-title { font-size: 11px; text-transform: uppercase; color: #6b6b6b; letter-spacing: 1px; margin-bottom: 8px; font-weight: 600; }
+.row { margin-bottom: 10px; }
+.row label { display: block; font-size: 12px; color: #6b6b6b; margin-bottom: 3px; }
+.row input { width: 100%; padding: 7px 10px; font-size: 13px; border: 1px solid #e0dbd4; border-radius: 6px; outline: none; background: #f0ebe4; }
+.row input:focus { border-color: #0d7377; }
+.row .flex { display: flex; gap: 8px; }
+.row .flex input:first-child { flex: 1; }
+.row .flex input:last-child { width: 70px; flex-shrink: 0; }
+.btn { width: 100%; padding: 9px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; }
+.btn-primary { background: #0d7377; color: #fff; }
+.btn-primary:hover { background: #085356; }
+.btn-primary:active { transform: scale(0.97); }
+.btn-success { background: #2d8a4e; color: #fff; }
+.btn-success:hover { background: #1e6b38; }
+.btn-success:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-row { display: flex; gap: 8px; }
+.btn-row .btn { flex: 1; }
+.main { flex: 1; padding: 16px; display: flex; flex-direction: column; }
+.log {
+  flex: 1; background: #1e1e2e; border-radius: 10px;
+  padding: 14px; overflow-y: auto;
+  font-family: "Cascadia Code", "Consolas", monospace;
+  font-size: 12px; line-height: 1.6;
+}
+.log-entry { color: #cdd6f4; white-space: pre-wrap; word-break: break-all; user-select: text; }
+.log-entry.info { color: #89b4fa; }
+.log-entry.success { color: #a6e3a1; }
+.log-entry.error { color: #f38ba8; }
+.log-entry.warn { color: #f9e2af; }
+.log-entry.system { color: #6c7086; font-style: italic; }
+.log-time { color: #6c7086; margin-right: 8px; }
+.bar { display: flex; gap: 16px; padding: 8px 0; font-size: 12px; color: #6b6b6b; }
+.jd-section { background:#fff;border:1px solid #e0dbd4;border-radius:10px;padding:12px 16px;margin-bottom:8px; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: #e0dbd4; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="title-bar">
+  <div><h1>邮件简历筛选系统</h1><div class="subtitle">自动筛选招聘邮箱中的简历</div></div>
+  <div id="badge-running" style="display:none;font-size:12px;padding:4px 12px;border-radius:20px;background:rgba(255,255,255,0.15)"> 运行中...</div>
+</div>
+<div class="layout">
+  <div class="sidebar">
+    <div class="section">
+      <div class="section-title">邮箱配置</div>
+      <div class="row">
+        <label>IMAP 服务器</label>
+        <div class="flex">
+          <input id="srv" value="imap.qq.com">
+          <input id="port" value="993">
+        </div>
+      </div>
+      <div class="row">
+        <label>邮箱账号</label>
+        <input id="acc" value="3766416595@qq.com">
+      </div>
+      <div class="row">
+        <label>邮箱密码</label>
+        <input id="pwd" type="password" placeholder="留空保持不变">
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">DeepSeek</div>
+      <div class="row">
+        <label>API Key</label>
+        <input id="dk" type="password" placeholder="留空保持不变">
+      </div>
+    </div>
+    <div class="section" id="folder-section" style="display:none">
+      <div class="section-title">邮箱文件夹</div>
+      <button class="btn btn-primary" onclick="checkFolders()" style="font-size:12px;padding:7px">检查/创建文件夹</button>
+    </div>
+
+    <div class="section">
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveConfig()">保存配置</button>
+        <button class="btn btn-success" id="btn-run" onclick="runScreening()">开始筛选</button>
+      </div>
+    </div>
+  </div>
+  <div class="main">
+    <div class="bar">
+      <span id="s-imap">IMAP: --</span>
+      <span id="s-dk">DeepSeek: --</span>
+    </div>
+    <div class="jd-section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:12px;font-weight:600;color:#2d2d2d">JD 匹配规则</div>
+        <div style="font-size:11px;color:#6b6b6b">根据邮件标题关键词匹配 JD 文件</div>
+      </div>
+      <div style="font-size:11px;color:#888;margin-bottom:6px;line-height:1.5">
+        💡 每个规则支持多个关键词，用逗号（英文 <code>,</code> 或中文 <code>，</code>）分隔，标题命中任一关键词即匹配
+      </div>
+      <div id="jd-rules-list" style="font-size:12px;color:#6b6b6b;line-height:1.6"></div>
+      <div style="margin:6px 0;display:flex;gap:4px;flex-wrap:wrap">
+        <button onclick="addRule()" style="font-size:11px;padding:3px 8px;border:1px solid #0d7377;border-radius:4px;background:#fff;color:#0d7377;cursor:pointer">+ 添加规则</button>
+        <button onclick="saveJDRules()" style="font-size:11px;padding:3px 8px;border:none;border-radius:4px;background:#0d7377;color:#fff;cursor:pointer">保存规则</button>
+      </div>
+    </div>
+    <div class="log" id="log" style="flex:1;min-height:150px">
+      <div class="log-entry system">系统就绪，请配置邮箱后开始筛选</div>
+    </div>
+  </div>
+</div>
+<div id="jd-editor" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:1000">
+  <div style="position:absolute;top:10%;left:10%;right:10%;bottom:10%;background:#fff;border-radius:10px;padding:16px;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+      <strong id="jd-editor-name" style="font-size:14px"></strong>
+      <button onclick="closeJDEditor()" style="border:none;background:none;font-size:18px;cursor:pointer">×</button>
+    </div>
+    <textarea id="jd-editor-content" style="flex:1;font-size:13px;padding:10px;border:1px solid #e0dbd4;border-radius:6px;font-family:monospace;resize:none"></textarea>
+    <button onclick="saveJDFile()" style="margin-top:8px;padding:8px;border:none;border-radius:6px;background:#0d7377;color:#fff;cursor:pointer;font-size:14px">保存</button>
+  </div>
+</div>
+<script>
+var api = null, running = false;
+
+function log(msg, t) {
+  t = t || 'info';
+  var p = document.getElementById('log');
+  var tm = new Date().toLocaleTimeString('zh-CN', {hour12:false});
+  var d = document.createElement('div');
+  d.className = 'log-entry ' + t;
+  d.innerHTML = '<span class="log-time">[' + tm + ']</span>' + msg;
+  p.appendChild(d); p.scrollTop = p.scrollHeight;
+}
+
+function init() {
+  if (window.pywebview && window.pywebview.api) {
+    api = window.pywebview.api;
+    api.get_config().then(function(c) {
+      document.getElementById('srv').value = c.imap_server || '';
+      document.getElementById('port').value = c.imap_port || 993;
+      document.getElementById('acc').value = c.account || '';
+      document.getElementById('s-imap').textContent = 'IMAP: ' + (c.imap_server || '未配置');
+      document.getElementById('s-dk').textContent = 'DeepSeek: ' + (c.deepseek_key_set ? '已配置' : '未配置');
+      if (c.imap_server && c.imap_server != '') {
+        document.getElementById('folder-section').style.display = '';
+      }
+      if (api) loadJDConfig();
+    });
+    setInterval(function() {
+      if (!api) return;
+      api.get_logs().then(function(es) {
+        es.forEach(function(e) {
+          log(e.msg, e.type);
+          if (e.msg.indexOf('筛选完成') >= 0) {
+            running = false;
+            document.getElementById('btn-run').disabled = false;
+            document.getElementById('badge-running').style.display = 'none';
+          }
+        });
+      });
+    }, 800);
+  }
+}
+
+var jdData = {rules: [], default_jd: '', jd_files: []};
+
+function loadJDConfig() {
+  if (!api) return;
+  api.get_jd_config().then(function(j) {
+    if (j.error) return;
+    jdData = j;
+    renderRules();
+  });
+}
+
+function renderRules() {
+  var html = '';
+  jdData.rules.forEach(function(r, i) {
+    html += '<div style="display:flex;gap:4px;margin:3px 0;align-items:center">';
+    html += '<input id="kw-' + i + '" value="' + r.keywords.join(',') + '" style="flex:1;font-size:11px;padding:2px 4px;border:1px solid #e0dbd4;border-radius:3px" placeholder="关键词,用逗号分隔">';
+    html += '<span style="font-size:11px">→</span>';
+    html += '<div style="display:flex;gap:2px;align-items:center">';
+    html += '<input id="jd-' + i + '" value="' + r.jd_file + '" style="width:85px;font-size:11px;padding:2px 4px;border:1px solid #e0dbd4;border-radius:3px" placeholder="文件名.txt">';
+    html += '<button onclick="pickJD(' + i + ')" style="font-size:10px;padding:1px 5px;border:1px solid #0d7377;border-radius:3px;background:#fff;color:#0d7377;cursor:pointer">浏览</button>';
+    html += '</div>';
+    html += '<button onclick="delRule(' + i + ')" style="font-size:12px;border:none;background:none;cursor:pointer;color:#c0392b">×</button>';
+    html += '</div>';
+  });
+  document.getElementById('jd-rules-list').innerHTML = html;
+}
+
+function addRule() {
+  var defaultFile = (jdData.jd_files && jdData.jd_files.length > 0) ? jdData.jd_files[0] : 'jd1.txt';
+  jdData.rules.push({keywords: ['新岗位'], jd_file: defaultFile});
+  renderRules();
+}
+
+function delRule(i) {
+  jdData.rules.splice(i, 1);
+  renderRules();
+}
+
+function saveJDRules() {
+  var rules = [];
+  for (var i = 0; i < jdData.rules.length; i++) {
+    var kwInput = document.getElementById('kw-' + i);
+    var jdInput = document.getElementById('jd-' + i);
+    if (kwInput && jdInput) {
+      var kws = kwInput.value.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s; });
+      var jdName = jdInput.value.trim();
+      if (kws.length > 0 && jdName) {
+        rules.push({keywords: kws, jd_file: jdName});
+      }
+    }
+  }
+  api.save_jd_rules(JSON.stringify(rules), '').then(function(r) {
+    if (r.ok) { log('JD 规则已保存', 'success'); loadJDConfig(); }
+  });
+}
+
+var editingFile = '';
+function pickJD(i) {
+  if (!api) return;
+  api.pick_jd_file().then(function(r) {
+    if (r) {
+      document.getElementById('jd-' + i).value = r.name;
+      log('已导入: ' + r.name, 'success');
+    }
+  });
+}
+function editJDFile(name) {
+  editingFile = name;
+  api.get_jd_content(name).then(function(r) {
+    if (r.error) { log(r.error, 'error'); return; }
+    document.getElementById('jd-editor-name').textContent = r.name;
+    document.getElementById('jd-editor-content').value = r.content;
+    document.getElementById('jd-editor').style.display = '';
+  });
+}
+function saveJDFile() {
+  var content = document.getElementById('jd-editor-content').value;
+  api.save_jd_file(editingFile, content).then(function(r) {
+    if (r.ok) { log('JD 文件已保存: ' + editingFile, 'success'); closeJDEditor(); }
+  });
+}
+function closeJDEditor() { document.getElementById('jd-editor').style.display = 'none'; }
+
+function saveConfig() {
+  var s = document.getElementById('srv').value.trim();
+  var p = document.getElementById('port').value.trim();
+  var a = document.getElementById('acc').value.trim();
+  var pw = document.getElementById('pwd').value;
+  var dk = document.getElementById('dk').value;
+  if (!s || !a) { log('请填写 IMAP 服务器和邮箱账号', 'warn'); return; }
+  api.save_config(s, p, a, pw, dk).then(function(r) {
+    if (r === 'ok') {
+      document.getElementById('pwd').value = '';
+      document.getElementById('dk').value = '';
+      api.get_config().then(function(c) {
+        document.getElementById('s-imap').textContent = 'IMAP: ' + c.imap_server;
+        document.getElementById('s-dk').textContent = 'DeepSeek: ' + (c.deepseek_key_set ? '已配置' : '未配置');
+      });
+    }
+  });
+}
+
+function checkFolders() {
+  if (!api) return;
+  log('正在连接邮箱检查文件夹...', 'info');
+  api.check_email_folders().then(function(r) {
+    if (r.error) { log('检查文件夹失败: ' + r.error, 'error'); return; }
+    r.folders.forEach(function(f) {
+      log((f.exists ? '✅ ' : '❌ ') + f.name, f.exists ? 'success' : 'warn');
+    });
+    var missing = r.folders.filter(function(f) { return !f.exists; });
+    if (missing.length > 0) {
+      log('缺少 ' + missing.length + ' 个文件夹，正在自动创建...', 'warn');
+      api.create_email_folders().then(function(r2) {
+        if (r2.error) { log('创建文件夹失败: ' + r2.error, 'error'); return; }
+        log('已创建 ' + r2.created + ' 个文件夹', 'success');
+      });
+    } else {
+      log('全部文件夹就绪', 'success');
+    }
+  });
+}
+function runScreening() {
+  if (running) return;
+  running = true;
+  document.getElementById('btn-run').disabled = true;
+  document.getElementById('badge-running').style.display = '';
+  api.run_screening();
+}
+
+document.addEventListener('pywebviewready', init);
+if (window.pywebview) { init(); }
+else { window.addEventListener('load', function() { setTimeout(init, 1500); }); }
+</script>
+</body>
+</html>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                

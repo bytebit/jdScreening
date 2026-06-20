@@ -207,13 +207,4 @@ class LiepinCollector:
 
     def _save_cookies(self):
         try:
-            from .cdp_connector import CDPConnector
-            c=CDPConnector(); c._playwright=self._playwright; c.browser=self.browser; c.context=self.context; c.connected=True
-            c.save_cookies()
-        except: pass
-    def close(self):
-        try:
-            if self._playwright: self._playwright.__exit__(None,None,None)
-        except: pass
-    def __enter__(self): return self
-    def __exit__(self,*a): self.close()
+            from .cdp_connector import CDPConne

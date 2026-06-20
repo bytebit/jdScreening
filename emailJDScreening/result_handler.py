@@ -20,7 +20,7 @@ class ResultHandler:
     def process_result(self, email_id, msg, subject, sender_name, sender_email,
                        jd_name, attachment_name, ai_result):
         """
-        处理一次评估结果：移动邮件 + 写日志 + 记录 CSV
+        处理一次评估结果：移动邮件 + 写日志 + 记录 CSV + 标记已读
 
         参数:
             email_id: IMAP 邮件 ID
@@ -51,6 +51,10 @@ class ResultHandler:
         self._append_csv(sender_name, sender_email, subject,
                          jd_name, decision, reason, attachment_name)
 
+        # 4. 标记为已读，防止下次重复处理
+        if hasattr(self.email_handler, 'mark_as_read'):
+            self.email_handler.mark_as_read(email_id)
+
     # ------------------------------------------------------------------
     # 邮件移动
     # ------------------------------------------------------------------
@@ -70,11 +74,11 @@ class ResultHandler:
 
     def _append_csv(self, sender_name, sender_email, subject,
                     jd_name, decision, reason, attachment_name):
-        """追加一条记录到当日 CSV 报表"""
+        """追加一条记录到本次运行的 CSV 报表（每次运行生成新文件）"""
         os.makedirs(self.report_dir, exist_ok=True)
 
-        today = datetime.now().strftime('%Y-%m-%d')
-        report_file = os.path.join(self.report_dir, f'简历筛选报告_{today}.csv')
+        ts = datetime.now().strftime('%Y-%m-%d_%H%M')
+        report_file = os.path.join(self.report_dir, f'简历筛选报告_{ts}.csv')
 
         # 检查文件是否已存在（决定是否写表头）
         file_exists = os.path.exists(report_file)
@@ -86,7 +90,7 @@ class ResultHandler:
                 if not file_exists:
                     writer.writerow([
                         '时间', '姓名', '邮箱', '邮件主题', '投递岗位',
-                        '分类', '匹配点', '不匹配点', '理由', '简历文件名'
+                        '分类', '理由', '简历文件名'
                     ])
 
                 writer.writerow([
@@ -96,8 +100,6 @@ class ResultHandler:
                     subject,
                     jd_name.replace('.txt', ''),
                     decision,
-                    '; '.join(ai_result.get('matched_requirements', [])),
-                    '; '.join(ai_result.get('unmatched_requirements', [])),
                     reason,
                     attachment_name,
                 ])
@@ -105,4 +107,4 @@ class ResultHandler:
             logging.info(f"已记录到报表: {report_file}")
 
         except Exception as e:
-            logging.error(f"写入 CSV 报表失败: {e}")
+            log

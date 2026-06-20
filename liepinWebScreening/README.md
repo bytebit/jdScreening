@@ -114,28 +114,4 @@ Excel 报告（S/A/B/C/D 分级）
 | `jd.txt` | 📝 岗位描述文件（可修改） |
 | `config.py` | ⚙️ 配置文件（一般不需要动） |
 | `data/reports/` | 📊 生成的 Excel 报告 |
-| `main.py` | 主程序（命令行用） |
-
----
-
-## 常见问题
-
-**Q: 双击 `install.bat` 报错「Python 未安装」？**
-→ 去 [python.org](https://www.python.org/downloads/) 下载安装，记得勾选「Add Python to PATH」
-
-**Q: 双击「启动浏览器.bat」后 Edge 没反应？**
-→ 手动关闭所有 Edge 窗口，再双击一次
-
-**Q: 采集到 0 份简历？**
-→ 检查猎聘页面上是否能搜出候选人，把筛选条件放宽试试
-
-**Q: DeepSeek 报错？**
-→ 检查 `.env` 文件中的 API Key 是否正确，账户是否有余额
-→ 登录 [platform.deepseek.com](https://platform.deepseek.com) 查看
-
-**Q: 猎聘页面改版了，采集不到数据？**
-→ 先保持搜索结果页打开，然后运行：
-```bash
-python main.py survey
-```
-→ 将输出的配置复制到 `config.py` 中
+|
